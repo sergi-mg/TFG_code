@@ -449,7 +449,7 @@ for v in range (3):
 
 ################################################################################
 ################################################################################
-#3-Other data generation and analysis
+#3-Other data generation
 #Initial segregation
 import numpy as np
 rho_l=np.zeros((31))
