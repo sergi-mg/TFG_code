@@ -90,7 +90,7 @@ def G_function(matrix,threshold,alpha):
 #Classic algorithm
 def classic_algorithm(M_i,tau,alpha):
     """Executes the classic algorithm and returns a tupple with the final
-    configuration, a tupple with (T,h,G,H,S) from the free energy function
+    configuration, a tupple with (T,h,G,H,S) from the G_function
     applied to the final configuration and the number of iterations.
     The alpha value does not affect the results."""
     import random as rand
@@ -184,8 +184,8 @@ def classic_algorithm(M_i,tau,alpha):
 
 #Greedy algorithm
 def our_model(M_i, tau, alpha):
-    """Executes the proposed algorithm and returns a tupple with the final
-    configuration, a tupple with (T,h,G,H,S) from the free energy function
+    """Executes the greedy algorithm and returns a tupple with the final
+    configuration, a tupple with (T,h,G,H,S) from the G_function
     applied to the final configuration and the number of iterations."""
     import random as rand
     import numpy as np
@@ -292,16 +292,15 @@ def our_model(M_i, tau, alpha):
 #data generation
 def data_generator(alpha,rho_0,N):
     import numpy as np
-    from tqdm import tqdm
     """Executes N simulations of the algorithm and then writes a data
     file with three columns: final S, H and number of steps, in that order."""
-    tau=0.5 #in this study we work, it can be changed for new studies
+    tau=0.5 #in this study, it can be changed for new studies
     data=np.zeros((N,3),dtype="float64")
     file_name="alpha_"+str(round(alpha,4))+"_rho_"+str(round(rho_0,4))+"_N_"+\
     str(N)+"_2.dat"
-    #tqdm allows us to estimate the time left to finish the generation
-    for i in tqdm(range(N)):
+    for i in range(N):
         M_i=initial_matrix(20, rho_0, 0.5)
+        #the size L=20 an proportion 0.5 can be changed for other studies
         #simulation execution (to execute the classic algorithm
         #change "our_model" for "classic_algorithm".)
         final_state=our_model(M_i, tau, alpha)
@@ -382,7 +381,7 @@ def calc_reg(x,y):
 
 def statistics_matrix(rho_val,alpha_val,N,number):
     """Reads the files for the rho and alpha (1D arrays) indicated and returns
-    the mean and its sigma of the three variables (S,H,steps) for each
+    the mean and its sigma of the three variables S,H,steps for each
     pair rho-alpha: M[alpha,rho,variable] for mean and sigma, two components
     of the tuple. It also returns the correlation coefficient r of S(steps)
     for each pair (alpha,rho)."""
@@ -420,7 +419,7 @@ def statistics_matrix(rho_val,alpha_val,N,number):
             sigma[i,j,1]=H_stats[1]
             sigma[i,j,2]=steps_stats[1]
 
-    return mean,sigma, correlation
+    return mean,sigma,correlation
 
 
 #we can obtain the results needed with the following code
@@ -447,3 +446,72 @@ for v in range (3):
     for i in range(np.size(rho_l)):
         results[:,i,v],d_results[:,i,v]=xifres(A[0][:,i,v],\
                                                1.96*A[1][:,i,v],10,-10)
+
+################################################################################
+################################################################################
+#3-Other data generation and analysis
+#Initial segregation
+import numpy as np
+rho_l=np.zeros((31))
+rho_l[:16]=np.arange(0.01,0.161,0.01)
+rho_l[16:]=np.arange(0.2,0.92,step=0.05)
+N=10000 
+S_rho=np.zeros((N,31),dtype="float64")
+for rho_i in range(0,31):
+    rho=rho_l[rho_i]
+    print(rho)    
+    for i in range(N):
+        M=initial_matrix(20, rho, 0.5)
+        results=free_energy(M, 0.5, 0.5) #the alpha value is not important here
+        S_rho[i][rho_i]=results[4]
+#saving the data
+np.savetxt("s_ini_rho_10000.dat", S_rho, fmt="%.16e", delimiter="   ")
+
+#Initial number of unhappy agents (simulation)
+import numpy as np
+N=10000
+ua_rho=np.zeros((N,39),dtype="float64")
+import numpy as np
+for rho_i in range(0,39):
+    rho=rho_i/40+0.025
+    print(rho)    
+    for i in range(N):
+        M=initial_matrix(20, rho, 0.5)
+        O=np.ones(M.shape,dtype="float64")-(M==0)*1.
+        results=free_energy(M, 0.5, 0.5) #the alpha value is not important here
+        T_i=results[0]
+        U=O*(T_i>0.5)
+        #total number of unhappy agents
+        N_uh=np.sum(U)
+        ua_rho[i][rho_i]=N_uh
+#saving the data
+np.savetxt("ua_rho_10000.dat", ua_rho, fmt="%.16e", delimiter="   ")
+
+#Initial number of unhappy agents (theoretical)
+import numpy as np
+import scipy.special as sp
+N=400
+rho_0=np.arange(0.025,0.976,0.025)
+Pi=(N*(1-rho_0)/2-1)/(N-1) #equal
+Pd=(N*(1-rho_0)/2)/(N-1) #different
+P0=rho_0*N/(N-1) #agent-vacancy
+#expected value for individual happiness <h>=h/norm
+h=0 
+norm=0 
+for Ni in range(8+1):
+    for Nd in range(8-Ni+1):
+        N0=8-Ni-Nd
+        norm+=(Pi**Ni)*(Pd**Nd)*(P0**N0)*\
+        (sp.factorial(8)/(sp.factorial(Ni)*sp.factorial(Nd)*sp.factorial(N0)))
+        if Nd<=Ni:
+            #the agent will be happy
+            h+=(Pi**Ni)*(Pd**Nd)*(P0**N0)*\
+            (sp.factorial(8)/(sp.factorial(Ni)*sp.factorial(Nd)*sp.factorial(N0)))
+#number of unhappy agents: ua
+ua=N*(1-rho_0)*(1-h/norm)
+rho_plot=np.arange(0.025,1,step=0.025)
+#saving the data
+save_U=np.zeros((39,2),dtype="float64")
+save_U[:,0]=rho_plot
+save_U[:,1]=ua.copy()
+np.savetxt("Ua_results_theoric.dat", save_U, delimiter="   ", fmt="%.10f")
